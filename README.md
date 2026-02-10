@@ -1,5 +1,7 @@
 # Spark Internals: Learning Through Stories
 
+**📖 Published as [GitHub Pages](https://vinodkc.github.io/sparklearning/)**
+
 This doc is a growing collection of **story-style** explanations of Apache Spark internals. Each story focuses on one concept or subsystem and explains it as a narrative—what problem it solves, how it works, and how the pieces fit together—with minimal code, so the ideas stick.
 
 Stories are grouped by topic. Each topic has its own directory; related topics are grouped into **themes** below.
@@ -25,7 +27,7 @@ How jobs become stages and tasks, how data moves, and how memory and fault toler
 |-------|-------------|---------|
 | [Execution & scheduling](execution/) | From actions to DAG, stages, tasks; driver and executors | *Coming soon* |
 | [Scheduler](scheduler/) | DAG Scheduler, Task Scheduler; how stages and tasks are submitted and run | *Coming soon* |
-| [Shuffle](shuffle/) | Shuffle write/read, sort shuffle, external shuffle service | *Coming soon* |
+| [Shuffle](shuffle/) | Shuffle write/read, sort shuffle, external shuffle service | [The Journey of a Shuffle Record](shuffle/journey_of_a_shuffle_record.md) |
 | [Memory & storage](memory/) | Unified memory, BlockManager, caching and eviction | *Coming soon* |
 | [Fault tolerance](fault-tolerance/) | Lineage, recomputation, checkpointing, speculation | *Coming soon* |
 | [Partitioning](partitioning/) | Partitions, coalesce vs repartition, partition pruning | *Coming soon* |
@@ -111,3 +113,4 @@ Deeper internals: Tungsten, catalog, and table metadata.
 ## Quick link to existing content
 
 - **[RocksDB in Structured Streaming: The Story](ss/rocksdb_structured_streaming_story.md)** — Why streaming needs state, why RocksDB is an option, where state lives (local vs checkpoint), and the rhythm of load → work → commit.
+- **[The Journey of a Shuffle Record](shuffle/journey_of_a_shuffle_record.md)** — How one record travels from map task to reduce task: buffer, sort, spill, merge, write, then fetch, deserialize, and consume; and what happens when an executor is gone.
