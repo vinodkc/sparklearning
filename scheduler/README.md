@@ -2,9 +2,10 @@
 
 Stories about how Spark schedules work: the DAG Scheduler and the Task Scheduler, and how stages and tasks get submitted and run on executors.
 
+**Stories:**
+- [From One Action to Many Tasks](from_action_to_tasks.md)
+
 **Planned stories:**
-- DAG Scheduler: from job to stages (why shuffle is a boundary)
-- Task Scheduler: from stages to tasks, and how tasks are offered to executors
 - Locality: preferred locations, delay scheduling, and when Spark waits for a “good” executor
 - Scheduling pool and fair sharing (when multiple jobs run)
 
