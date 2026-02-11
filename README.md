@@ -26,7 +26,7 @@ How jobs become stages and tasks, how data moves, and how memory and fault toler
 | Topic | Description | Stories |
 |-------|-------------|---------|
 | [Execution & scheduling](execution/) | From actions to DAG, stages, tasks; driver and executors | *Coming soon* |
-| [Scheduler](scheduler/) | DAG Scheduler, Task Scheduler; how stages and tasks are submitted and run | [From One Action to Many Tasks](scheduler/from_action_to_tasks.md) |
+| [Scheduler](scheduler/) | DAG Scheduler, Task Scheduler; how stages and tasks are submitted and run | [From One Action to Many Tasks](scheduler/from_action_to_tasks.md), [Locality and Delay Scheduling](scheduler/locality_and_delay_scheduling.md) |
 | [Shuffle](shuffle/) | Shuffle write/read, sort shuffle, external shuffle service | [The Journey of a Shuffle Record](shuffle/journey_of_a_shuffle_record.md) |
 | [Memory & storage](memory/) | Unified memory, BlockManager, caching and eviction | *Coming soon* |
 | [Fault tolerance](fault-tolerance/) | Lineage, recomputation, checkpointing, speculation | *Coming soon* |
@@ -108,10 +108,3 @@ Deeper internals: Tungsten, catalog, and table metadata.
 - Use a **descriptive filename** (e.g. `rocksdb_structured_streaming_story.md`).
 - **Update this README**: add the story under the right topic in the table (or add a new topic row and directory if needed).
 
----
-
-## Quick link to existing content
-
-- **[RocksDB in Structured Streaming: The Story](ss/rocksdb_structured_streaming_story.md)** — Why streaming needs state, why RocksDB is an option, where state lives (local vs checkpoint), and the rhythm of load → work → commit.
-- **[The Journey of a Shuffle Record](shuffle/journey_of_a_shuffle_record.md)** — How one record travels from map task to reduce task: buffer, sort, spill, merge, write, then fetch, deserialize, and consume; and what happens when an executor is gone.
-- **[From One Action to Many Tasks](scheduler/from_action_to_tasks.md)** — How one action becomes a job, a DAG of stages (cut at shuffle), and TaskSets; how the Task Scheduler matches tasks to executors with locality and delay scheduling.
