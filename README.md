@@ -2,18 +2,18 @@
 
 **📖 Published as [GitHub Pages](https://vinodkc.github.io/sparklearning/)**
 
-This doc is a growing collection of **story-style** explanations of Apache Spark internals. Each story focuses on one concept or subsystem and explains it as a narrative—what problem it solves, how it works, and how the pieces fit together—with minimal code, so the ideas stick.
+A growing collection of **story-style** explanations of Apache Spark internals. Each story focuses on one concept or subsystem and explains it as a narrative—what problem it solves, how it works, and how the pieces fit together. Stories are written to be engaging and readable without diving into code, so the ideas stick.
 
-Stories are grouped by topic. Each topic has its own directory; related topics are grouped into **themes** below.
+Stories are grouped by **topic** (each has its own directory); related topics are grouped into **themes** in the index below.
 
 ---
 
 ## How to use this doc
 
-- **Browse by theme**: the index is organized into Execution core, Query & planning, Streaming, Data & I/O, and so on.
-- **Read in any order**: stories are self-contained; you can follow your curiosity.
+- **Browse by theme** — Execution core, Query & planning, Streaming, Data & I/O, and more.
+- **Read in any order** — Stories are self-contained; follow your curiosity.
 
-New stories will be added over time and linked from this README.
+New stories are added over time and linked from this README.
 
 ---
 
@@ -26,7 +26,8 @@ How jobs become stages and tasks, how data moves, and how memory and fault toler
 | Topic | Description | Stories |
 |-------|-------------|---------|
 | [Execution & scheduling](execution/) | From actions to DAG, stages, tasks; driver and executors | *Coming soon* |
-| [Scheduler](scheduler/) | DAG Scheduler, Task Scheduler; how stages and tasks are submitted and run | [From One Action to Many Tasks](scheduler/from_action_to_tasks.md), [Locality and Delay Scheduling](scheduler/locality_and_delay_scheduling.md) |
+| [Scheduler](scheduler/) | DAG Scheduler, Task Scheduler; how stages and tasks are submitted and run | [From One Action to Many Tasks](scheduler/from_action_to_tasks.md) |
+| [Locality and delay scheduling](scheduler/) | Preferred locations, locality levels, delay scheduling; when Spark waits for a good executor | [Locality and Delay Scheduling](scheduler/locality_and_delay_scheduling.md) |
 | [Shuffle](shuffle/) | Shuffle write/read, sort shuffle, external shuffle service | [The Journey of a Shuffle Record](shuffle/journey_of_a_shuffle_record.md) |
 | [Memory & storage](memory/) | Unified memory, BlockManager, caching and eviction | *Coming soon* |
 | [Fault tolerance](fault-tolerance/) | Lineage, recomputation, checkpointing, speculation | *Coming soon* |
@@ -106,5 +107,4 @@ Deeper internals: Tungsten, catalog, and table metadata.
 
 - Put each new story in the **directory for its topic** (create the directory if it’s the first story in that group).
 - Use a **descriptive filename** (e.g. `rocksdb_structured_streaming_story.md`).
-- **Update this README**: add the story under the right topic in the table (or add a new topic row and directory if needed).
-
+- **Update this README** — Add the story under the right topic in the table (or add a new topic row and directory if needed).
