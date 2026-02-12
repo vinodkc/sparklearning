@@ -5,8 +5,9 @@ Stories about how Spark schedules work: the DAG Scheduler and the Task Scheduler
 **Stories:**
 - [From One Action to Many Tasks](from_action_to_tasks.md)
 - [Locality and Delay Scheduling](locality_and_delay_scheduling.md)
+- [Scheduling Pools and Fair Sharing](scheduling_pools_and_fair_sharing.md)
 
 **Planned stories:**
-- Scheduling pool and fair sharing (when multiple jobs run)
+- (More scheduler stories will be added here.)
 
 Stories will be added here gradually.

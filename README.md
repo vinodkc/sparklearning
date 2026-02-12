@@ -28,6 +28,7 @@ How jobs become stages and tasks, how data moves, and how memory and fault toler
 | [Execution & scheduling](execution/) | From actions to DAG, stages, tasks; driver and executors | *Coming soon* |
 | [Scheduler](scheduler/) | DAG Scheduler, Task Scheduler; how stages and tasks are submitted and run | [From One Action to Many Tasks](scheduler/from_action_to_tasks.md) |
 | [Locality and delay scheduling](scheduler/) | Preferred locations, locality levels, delay scheduling; when Spark waits for a good executor | [Locality and Delay Scheduling](scheduler/locality_and_delay_scheduling.md) |
+| [Scheduling pools and fair sharing](scheduler/) | Pools, minimum share, weight; how multiple jobs share resources in fair mode | [Scheduling Pools and Fair Sharing](scheduler/scheduling_pools_and_fair_sharing.md) |
 | [Shuffle](shuffle/) | Shuffle write/read, sort shuffle, external shuffle service | [The Journey of a Shuffle Record](shuffle/journey_of_a_shuffle_record.md) |
 | [Memory & storage](memory/) | Unified memory, BlockManager, caching and eviction | *Coming soon* |
 | [Fault tolerance](fault-tolerance/) | Lineage, recomputation, checkpointing, speculation | *Coming soon* |
