@@ -30,8 +30,8 @@ How jobs become stages and tasks, how data moves, and how memory and fault toler
 | [Locality and delay scheduling](scheduler/) | Preferred locations, locality levels, delay scheduling; when Spark waits for a good executor | [Locality and Delay Scheduling](scheduler/locality_and_delay_scheduling.md) |
 | [Scheduling pools and fair sharing](scheduler/) | Pools, minimum share, weight; how multiple jobs share resources in fair mode | [Scheduling Pools and Fair Sharing](scheduler/scheduling_pools_and_fair_sharing.md) |
 | [Shuffle](shuffle/) | Shuffle write/read, sort shuffle, external shuffle service | [The Journey of a Shuffle Record](shuffle/journey_of_a_shuffle_record.md) |
-| [Memory & storage](memory/) | Unified memory, BlockManager, caching and eviction | *Coming soon* |
-| [Fault tolerance](fault-tolerance/) | Lineage, recomputation, checkpointing, speculation | *Coming soon* |
+| [Memory & storage](memory/) | Unified memory, BlockManager, caching and eviction | [The Two Lives of Spark's Memory](memory/unified_memory_and_block_manager.md) |
+| [Fault tolerance](fault-tolerance/) | Lineage, recomputation, checkpointing, speculation | [How Spark Survives Failure](fault-tolerance/lineage_and_fault_tolerance.md) |
 | [Partitioning](partitioning/) | Partitions, coalesce vs repartition, partition pruning | *Coming soon* |
 | [Broadcast & shared state](broadcast/) | Broadcast variables, accumulators | *Coming soon* |
 
@@ -43,9 +43,9 @@ How DataFrame/SQL becomes a plan, how it’s optimized, and how joins and adapti
 
 | Topic | Description | Stories |
 |-------|-------------|---------|
-| [Query planning (Catalyst)](catalyst/) | Logical plan, optimization rules, physical plan, codegen | *Coming soon* |
+| [Query planning (Catalyst)](catalyst/) | Logical plan, optimization rules, physical plan, codegen | [From SQL to a Running Plan: The Catalyst Story](catalyst/from_sql_to_physical_plan.md) |
 | [Adaptive & runtime](adaptive/) | AQE, dynamic partition pruning | *Coming soon* |
-| [Join strategies](joins/) | Sort-merge, broadcast, hash join; when each is chosen | *Coming soon* |
+| [Join strategies](joins/) | Sort-merge, broadcast, hash join; when each is chosen | [How Spark Chooses a Join](joins/how_spark_chooses_a_join.md) |
 
 ---
 
@@ -99,7 +99,7 @@ Deeper internals: Tungsten, catalog, and table metadata.
 
 | Topic | Description | Stories |
 |-------|-------------|---------|
-| [Tungsten](tungsten/) | Binary rows, off-heap, cache-friendly layout | *Coming soon* |
+| [Tungsten](tungsten/) | Binary rows, off-heap, cache-friendly layout | [Tungsten: How Spark Stopped Trusting the JVM](tungsten/tungsten_and_binary_rows.md) |
 | [Catalog & tables](catalog/) | Spark catalog, table metadata, session catalog | *Coming soon* |
 
 ---
