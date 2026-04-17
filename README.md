@@ -4,6 +4,8 @@
 
 A growing collection of **story-style** explanations of Apache Spark internals. Each story focuses on one concept or subsystem and explains it as a narrative—what problem it solves, how it works, and how the pieces fit together. Stories are written to be engaging and readable without diving into code, so the ideas stick.
 
+**19 stories published · 16 ideas planned**
+
 Stories are grouped by **topic** (each has its own directory); related topics are grouped into **themes** in the index below.
 
 ---
@@ -12,9 +14,17 @@ Stories are grouped by **topic** (each has its own directory); related topics ar
 
 - **Browse by theme** — Execution core, Query & planning, Streaming, Data & I/O, and more.
 - **Read in any order** — Stories are self-contained; follow your curiosity.
-- **Suggested reading order for newcomers** — Start with [Execution & scheduling](execution/driver_executors_and_the_execution_model.md), then [Scheduler](scheduler/from_action_to_tasks.md), then [Shuffle](shuffle/journey_of_a_shuffle_record.md), then [Memory](memory/unified_memory_and_block_manager.md).
 
-New stories are added over time and linked from this README.
+### Suggested reading paths
+
+| Goal | Path |
+|------|------|
+| New to Spark internals | [Driver & Executors](execution/driver_executors_and_the_execution_model.md) → [Scheduler](scheduler/from_action_to_tasks.md) → [Shuffle](shuffle/journey_of_a_shuffle_record.md) → [Memory](memory/unified_memory_and_block_manager.md) → [Fault tolerance](fault-tolerance/lineage_and_fault_tolerance.md) |
+| Understanding SQL/DataFrame performance | [Catalyst](catalyst/from_sql_to_physical_plan.md) → [Joins](joins/how_spark_chooses_a_join.md) → [AQE](adaptive/aqe_rewriting_plans.md) → [Parquet](data-sources/inside_a_parquet_file.md) → [Tungsten](tungsten/tungsten_and_binary_rows.md) |
+| Debugging slow jobs | [Partitions](partitioning/partitions_coalesce_repartition_pruning.md) → [Data skew](partitioning/data_skew_story.md) → [AQE](adaptive/aqe_rewriting_plans.md) → [Joins](joins/how_spark_chooses_a_join.md) → [Memory](memory/unified_memory_and_block_manager.md) |
+| PySpark & UDF performance | [PySpark bridge](python/pyspark_bridge.md) → [UDF tax](udfs/udf_tax.md) → [Tungsten](tungsten/tungsten_and_binary_rows.md) |
+| Streaming systems | [RocksDB state store](ss/rocksdb_structured_streaming_story.md) → [Watermarks](ss/watermarks_and_late_data.md) |
+| Scheduling & fairness | [Scheduler](scheduler/from_action_to_tasks.md) → [Locality](scheduler/locality_and_delay_scheduling.md) → [Fair sharing](scheduler/scheduling_pools_and_fair_sharing.md) → [Broadcast & accumulators](broadcast/broadcast_variables_and_accumulators.md) |
 
 ---
 
@@ -35,8 +45,8 @@ How jobs become stages and tasks, how data moves, and how memory and fault toler
 | [Fault tolerance](fault-tolerance/) | Lineage, recomputation, checkpointing, speculation | [How Spark Survives Failure](fault-tolerance/lineage_and_fault_tolerance.md) |
 | [Partitioning](partitioning/) | Partitions, coalesce vs repartition, partition pruning | [Partitions: The Grain of Parallelism](partitioning/partitions_coalesce_repartition_pruning.md) |
 | [Broadcast & shared state](broadcast/) | Broadcast variables, accumulators | [Shared State in a Distributed Job](broadcast/broadcast_variables_and_accumulators.md) |
-| [Dynamic allocation](execution/) | Requesting and releasing executors at runtime; elasticity under load | *Idea: "Elastic Executors: How Dynamic Allocation Grows and Shrinks the Cluster"* |
 | [Data skew](partitioning/) | Detecting and handling skewed partitions; salting, AQE skew join | [When One Partition Holds Up Everyone: The Data Skew Story](partitioning/data_skew_story.md) |
+| [Dynamic allocation](execution/) | Requesting and releasing executors at runtime; elasticity under load | *Idea: "Elastic Executors: How Dynamic Allocation Grows and Shrinks the Cluster"* |
 
 ---
 
@@ -47,8 +57,7 @@ How DataFrame/SQL becomes a plan, how it's optimized, and how joins and adaptive
 | Topic | Description | Stories |
 |-------|-------------|---------|
 | [Query planning (Catalyst)](catalyst/) | Logical plan, optimization rules, physical plan, codegen | [From SQL to a Running Plan: The Catalyst Story](catalyst/from_sql_to_physical_plan.md) |
-| [Adaptive & runtime](adaptive/) | AQE, dynamic partition pruning, runtime re-planning | [AQE: How Spark Rewrites Plans After the Shuffle](adaptive/aqe_rewriting_plans.md) |
-| [Dynamic partition pruning](adaptive/) | How a join result is used to skip scanning partitions at runtime | *Idea: "Dynamic Partition Pruning: Filtering a Billion Rows Before Reading Them"* |
+| [Adaptive & runtime](adaptive/) | AQE: coalescing partitions, join conversion, skew handling, dynamic partition pruning | [AQE: How Spark Rewrites Plans After the Shuffle](adaptive/aqe_rewriting_plans.md) |
 | [Join strategies](joins/) | Sort-merge, broadcast, hash join; when each is chosen | [How Spark Chooses a Join](joins/how_spark_chooses_a_join.md) |
 | [Statistics & CBO](catalyst/) | Table statistics, column histograms, cost-based optimizer decisions | *Idea: "What Spark Knows About Your Data: Statistics and the Cost-Based Optimizer"* |
 | [Subqueries](catalyst/) | Correlated and uncorrelated subqueries; how they are rewritten and executed | *Idea: "Subqueries Untangled: How Spark Rewrites Nested Queries"* |
@@ -58,13 +67,13 @@ How DataFrame/SQL becomes a plan, how it's optimized, and how joins and adaptive
 
 ### Streaming
 
-State, checkpointing, and the lifecycle of micro-batches.
+State, checkpointing, watermarks, and the lifecycle of micro-batches.
 
 | Topic | Description | Stories |
 |-------|-------------|---------|
 | [Structured Streaming](ss/) | State stores, checkpointing, micro-batches, exactly-once | [RocksDB in Structured Streaming](ss/rocksdb_structured_streaming_story.md) |
-| [Micro-batch engine](ss/) | How each batch is planned, executed, and committed; the role of the StreamExecution thread | *Idea: "Batch by Batch: Inside the Structured Streaming Micro-Batch Engine"* |
 | [Watermarks & late data](ss/) | Event time, watermarks, how late records are handled or dropped | [Watermarks: How Structured Streaming Decides When to Stop Waiting](ss/watermarks_and_late_data.md) |
+| [Micro-batch engine](ss/) | How each batch is planned, executed, and committed; the StreamExecution thread | *Idea: "Batch by Batch: Inside the Structured Streaming Micro-Batch Engine"* |
 | [Stateful operations](ss/) | Aggregations over time windows, mapGroupsWithState, flatMapGroupsWithState | *Idea: "Keeping Score: How Spark Maintains State Across Micro-Batches"* |
 | [Exactly-once delivery](ss/) | Sources, sinks, idempotent writes, transactional commits | *Idea: "Exactly Once, For Real: How Structured Streaming Guarantees No Duplicates"* |
 | [Kafka integration](ss/) | Offset management, partition assignment, rate limiting in the Kafka source | *Idea: "Spark Meets Kafka: How Offsets, Partitions, and Backpressure Work Together"* |
@@ -78,8 +87,8 @@ Reading and writing data, formats, and data source APIs.
 
 | Topic | Description | Stories |
 |-------|-------------|---------|
-| [Data sources](data-sources/) | Reading/writing, V1 vs V2 API, file formats | *Idea: "The DataSource V2 API: How Spark Talks to Storage Systems"* |
 | [Parquet internals](data-sources/) | Row groups, column chunks, page encoding, predicate and projection pushdown | [Inside a Parquet File: Row Groups, Column Chunks, and Why Spark Loves It](data-sources/inside_a_parquet_file.md) |
+| [Data sources](data-sources/) | Reading/writing, V1 vs V2 API, file formats | *Idea: "The DataSource V2 API: How Spark Talks to Storage Systems"* |
 | [Delta Lake basics](data-sources/) | Transaction log, snapshot isolation, schema enforcement, time travel | *Idea: "The Transaction Log: How Delta Lake Brings ACID to Object Storage"* |
 | [Serialization](serialization/) | Tungsten binary format, Kryo, Java serialization; when each is used | *Idea: "Bytes on the Wire: How Spark Serializes Data for Tasks and Shuffles"* |
 | [Arrow & columnar transfer](serialization/) | Apache Arrow format, columnar batches in PySpark and pandas UDFs | *Idea: "The Columnar Fast Lane: How Apache Arrow Speeds Up PySpark"* |
@@ -92,9 +101,9 @@ How PySpark and UDFs integrate with the JVM.
 
 | Topic | Description | Stories |
 |-------|-------------|---------|
-| [Python (PySpark)](python/) | JVM ↔ Python bridge, Py4J, serialization overhead | [Two Runtimes, One Job: How PySpark Bridges Python and the JVM](python/pyspark_bridge.md) |
-| [Pandas UDFs](python/) | Arrow-based columnar UDFs; why they are faster than row-at-a-time UDFs | *Idea: "Pandas UDFs: How Arrow Makes Python Functions Fast Enough for Spark"* |
+| [Python (PySpark)](python/) | JVM ↔ Python bridge, Py4J, Arrow, serialization overhead | [Two Runtimes, One Job: How PySpark Bridges Python and the JVM](python/pyspark_bridge.md) |
 | [UDFs](udfs/) | Scalar UDF execution path, deserialization cost, why UDFs block Catalyst | [The UDF Tax: Why User-Defined Functions Are a Black Box to the Optimizer](udfs/udf_tax.md) |
+| [Pandas UDFs](python/) | Arrow-based columnar UDFs; why they are faster than row-at-a-time UDFs | *Idea: "Pandas UDFs: How Arrow Makes Python Functions Fast Enough for Spark"* |
 | [UDTFs & table functions](udfs/) | User-defined table functions, how they expand one row into many | *Idea: "One Row In, Many Rows Out: The Story of User-Defined Table Functions"* |
 
 ---
@@ -143,9 +152,25 @@ Practical stories about diagnosing and fixing common Spark performance problems.
 
 ---
 
+## Story map at a glance
+
+| Theme | Published | Ideas |
+|-------|-----------|-------|
+| Execution core | 10 | 1 |
+| Query & planning | 3 | 3 |
+| Streaming | 2 | 5 |
+| Data & I/O | 1 | 4 |
+| Python & UDFs | 2 | 2 |
+| Cluster & observability | 0 | 6 |
+| Advanced / internals | 1 | 4 |
+| Performance & tuning | 0 | 6 |
+| **Total** | **19** | **31** |
+
+---
+
 ## Adding new stories
 
 - Put each new story in the **directory for its topic** (create the directory if it's the first story in that group).
 - Use a **descriptive filename** (e.g. `rocksdb_structured_streaming_story.md`).
-- **Update this README** — Add the story under the right topic in the table (or add a new topic row and directory if needed).
+- **Update this README** — add the story link in the table and increment the count in the Story map.
 - Story ideas marked *Idea: "..."* above are planned but not yet written — pick one and go.
