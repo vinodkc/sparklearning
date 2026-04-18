@@ -16,7 +16,6 @@ Stories are grouped by **topic** (each has its own directory); related topics ar
 
 - **Browse by theme** — Execution core, Query & planning, Streaming, Data & I/O, and more.
 - **Read in any order** — Stories are self-contained; follow your curiosity.
-- **Look for the blockquotes** — Each story contains `> **Think of it like...`** analogies that anchor the technical concept to something familiar.
 
 ### Suggested reading paths
 
@@ -173,8 +172,6 @@ Practical stories about diagnosing and fixing common Spark performance problems.
 | Advanced / internals | 3 |
 | Performance & tuning | 6 |
 | **Unique total** | **50** |
-
-> Note: [EXPLAIN Yourself](catalyst/explain_output.md) appears under both Query & planning and Performance & tuning — same story, two relevant homes.
 
 ---
 
