@@ -8,7 +8,9 @@ This is the story of how Spark learns facts about your data and uses them to mak
 
 The most consequential decision the optimizer makes for complex queries is **join order**. For a query that joins five tables, there are 120 ways to order the pairwise joins. Some orderings filter the data down to almost nothing early in the plan; others produce intermediate results that are much larger than the inputs, making subsequent joins expensive. The difference between the best and worst ordering can be orders of magnitude.
 
-Without statistics, the optimizer can't distinguish these orderings. It uses the same heuristic for every plan—usually "smaller table first"—but without knowing actual table sizes, it may guess wrong. With statistics, it can model the cost of each candidate plan: how many rows each join produces, how much data moves across the network, how large the hash map for a hash join would be. The optimizer picks the plan with the lowest estimated cost.
+Without statistics, the optimizer can't distinguish these orderings. It uses the same heuristic for every plan—usually "smaller table first"—but without knowing actual table sizes, it may guess wrong. With statistics, it can model the cost of each candidate plan: how many rows each join produces, how much data moves across the network, how large the hash map for a hash join would be.
+
+> **Imagine planning a road trip through five cities.** Without a map (statistics), you might visit them in the order you thought of them, covering 3,000 miles unnecessarily. With a map showing distances and traffic, you plan an optimal route—perhaps visiting the two nearest cities first—and cover 900 miles instead. The optimizer's join reordering is exactly this: finding the short route through the query's "cities" of data.
 
 ---
 
@@ -16,15 +18,17 @@ Without statistics, the optimizer can't distinguish these orderings. It uses the
 
 Spark collects two categories of statistics: **table-level** and **column-level**.
 
-**Table-level statistics** are the basics: the total number of rows and the total size in bytes. These let the optimizer estimate whether a table is small enough to broadcast (broadcast hash join threshold check) and give a baseline for estimating downstream result sizes.
+**Table-level statistics** are the basics: the total number of rows and the total size in bytes. These let the optimizer estimate whether a table is small enough to broadcast and give a baseline for estimating downstream result sizes.
 
 **Column-level statistics** are richer. For each column you analyze, Spark can collect:
 
 - **Distinct count** (approximate, via HyperLogLog): how many unique values the column has. High cardinality means a `GROUP BY` produces many groups; low cardinality means potential for high join fanout.
-- **Min and max values**: the range of the column. Used to estimate how many rows a range filter will match—a filter `WHERE amount BETWEEN 100 AND 200` on a column with min=0 and max=10000 is estimated to select about 1% of rows.
-- **Null count**: how many rows have null values. Filters on nullable columns can be adjusted for null fraction.
+- **Min and max values**: the range of the column. Used to estimate how many rows a range filter will match.
+- **Null count**: how many rows have null values.
 - **Average column length**: used to estimate the byte size of intermediate results.
 - **Height-balanced histograms**: the most accurate structure. Instead of just min/max, a histogram divides the value range into buckets and records how many values fall in each. With a histogram, the optimizer can estimate selectivity for filters that target a specific part of the distribution—even on skewed columns where values cluster around certain ranges.
+
+> **Min/max statistics are like knowing the fastest and slowest finishing times in a marathon.** If the fastest is 2:00 and the slowest is 6:00, and someone asks "how many runners finished between 3:00 and 4:00?", you can make a rough guess, but you don't know if most runners clustered around 3:30 or spread out evenly. A histogram is the finishing-time distribution chart: it shows exactly how many runners fell in each 15-minute bucket, making the estimate precise even for non-uniform distributions.
 
 ---
 
@@ -41,12 +45,12 @@ To collect per-column statistics:
 Or for specific columns:
 `ANALYZE TABLE my_table COMPUTE STATISTICS FOR COLUMNS col1, col2, col3`
 
-For histograms (which provide more accurate selectivity estimates than plain min/max):
+For histograms:
 `ANALYZE TABLE my_table COMPUTE STATISTICS FOR COLUMNS col1 WITH HISTOGRAM`
 
-Statistics are written to the **metastore** (Hive Metastore or Spark's internal catalog) and read by the optimizer at query planning time. They are **not updated automatically** when data changes. After loading new data into a table, you should re-run `ANALYZE TABLE` or the statistics will reflect the old state and may mislead the optimizer.
+Statistics are written to the **metastore** and read by the optimizer at query planning time. They are **not updated automatically** when data changes. After loading new data into a table, you should re-run `ANALYZE TABLE` or the statistics will reflect the old state and may mislead the optimizer.
 
-For partitioned tables, you can also collect per-partition statistics, which allows the optimizer to use them after partition pruning—estimating the size of the post-pruning result rather than the full table.
+> **Stale statistics are like a city map from 10 years ago.** The roads might be completely different now—new highways, closed bridges—but the GPS is still routing you based on the old map. Re-running `ANALYZE TABLE` is updating the map to reflect reality.
 
 ---
 
@@ -68,9 +72,11 @@ Histograms improve this estimate significantly for skewed data. If the join colu
 
 ## Statistics propagation through the plan
 
-The CBO doesn't just use statistics for the base tables—it **propagates** estimated statistics through the plan. After estimating the output size of a filter, it uses that estimate as the input statistics for the next operator. After estimating a join's output, it uses that for the next join's input. This means a multi-join query benefits from statistics all the way through the plan, not just at the leaf tables.
+The CBO doesn't just use statistics for the base tables—it **propagates** estimated statistics through the plan. After estimating the output size of a filter, it uses that estimate as the input statistics for the next operator. After estimating a join's output, it uses that for the next join's input.
 
-Statistics propagation is also what allows the broadcast threshold to work correctly in the absence of a shuffle. The physical planner checks whether a plan node's estimated output size is below `spark.sql.autoBroadcastJoinThreshold`. With accurate propagated statistics, a table that starts large but is heavily filtered before the join will have a small estimated size at the join point, correctly triggering a broadcast. Without statistics, the planner sees only the base table size and may not broadcast even when the filtered result would easily fit.
+> **It's like tracking a river's flow rate as it passes through each town.** You start with a measurement at the source. After the first tributary joins (a join), you estimate the new combined flow. After a canal branches off (a filter), you estimate the reduced flow. Each measurement informs the next, so by the time you're planning the final dam (the last join), your estimate of the flow is based on all the upstream events—not just the source measurement.
+
+Statistics propagation is also what allows the broadcast threshold to work correctly in the absence of a shuffle. The physical planner checks whether a plan node's estimated output size is below `spark.sql.autoBroadcastJoinThreshold`. With accurate propagated statistics, a table that starts large but is heavily filtered before the join will have a small estimated size at the join point, correctly triggering a broadcast.
 
 ---
 
@@ -78,11 +84,13 @@ Statistics propagation is also what allows the broadcast threshold to work corre
 
 The CBO and AQE address the statistics problem from different angles.
 
-The CBO works **before execution**, using stored statistics to choose better plans at planning time. It is most effective for well-understood, stable data that has been analyzed. Its weakness is that stored statistics can become stale after data changes, and it can't anticipate runtime conditions like executor failures or actual shuffle sizes.
+The CBO works **before execution**, using stored statistics to choose better plans at planning time. It is most effective for well-understood, stable data that has been analyzed. Its weakness is that stored statistics can become stale after data changes.
 
 AQE works **during execution**, using real measured statistics from completed shuffle stages to adapt the plan for remaining stages. It doesn't need pre-collected statistics—it gets the ground truth at runtime. Its weakness is that it can only adapt at shuffle boundaries, not within a stage.
 
-The two are complementary: good statistics enable better initial plans (CBO), and AQE catches whatever the initial plan got wrong (runtime adaptation). For a production environment with a stable data model and regular `ANALYZE TABLE` runs, both should be enabled. CBO produces better initial join orderings and broadcast decisions; AQE handles the cases where estimates were still wrong despite statistics.
+> **CBO is like an experienced surgeon who studies the patient's X-rays before the operation.** Better preparation leads to a better incision plan. AQE is like a live ultrasound during the surgery—even with good preparation, you can see exactly what's there in real time and adjust the approach. The best outcome uses both.
+
+The two are complementary: good statistics enable better initial plans (CBO), and AQE catches whatever the initial plan got wrong (runtime adaptation). For a production environment with a stable data model and regular `ANALYZE TABLE` runs, both should be enabled.
 
 ---
 

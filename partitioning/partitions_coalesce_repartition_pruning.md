@@ -10,6 +10,8 @@ A partition is a contiguous, independent chunk of data. For an RDD built from an
 
 Each partition is processed by one task, on one executor core, at a time. That's the fundamental constraint: partitions and tasks are one-to-one. If you have 1000 partitions and 100 executor cores, Spark runs 100 tasks at once and processes all 1000 partitions in 10 waves. If you have 100 partitions and 100 cores, one wave—each core gets one task and you're done. If you have 10 partitions and 100 cores, 90 cores sit idle.
 
+> **Think of partitions like the pages of a book being proofread.** Each proofreader handles exactly one page at a time. If you have 200 pages and 50 proofreaders, it takes 4 rounds. If you have 5 pages and 50 proofreaders, 45 people sit idle while 5 work. The number of pages (partitions) and the number of proofreaders (cores) together determine how long the job takes.
+
 ---
 
 ## The partition count problem: too few vs. too many
@@ -20,6 +22,8 @@ Partition count is a dial with costs on both sides.
 
 **Too many partitions** means overhead. Spark must schedule, serialize, launch, and track each task. If each task processes only a few kilobytes of data, the overhead of launching the task dominates its runtime. Thousands of tiny tasks also stress the driver's scheduler and can create many small shuffle files, which are expensive to open and read.
 
+> **It's like cutting a pizza.** Too few slices—two giant slices for eight people—means most people wait while two eat. Too many slices—eighty tiny slivers—means more time cutting than eating, and everyone's plate is a mess. A good partition count is the right-sized slice: enough for everyone to eat in parallel without the overhead of slicing becoming the dominant cost.
+
 A common rule of thumb: aim for partitions that are between 100 MB and a few hundred MB each when processing large data. For shuffles, `spark.sql.shuffle.partitions = 200` is the default, but for a job processing 1 GB you might want 10 partitions and for a job processing 10 TB you might want 2000.
 
 ---
@@ -27,6 +31,8 @@ A common rule of thumb: aim for partitions that are between 100 MB and a few hun
 ## coalesce: reducing partitions without a shuffle
 
 **`coalesce(n)`** reduces the number of partitions to `n`. Its key property is that it does this **without a full shuffle** when `n` is smaller than the current partition count. Instead of redistributing data across the network, coalesce merges existing partitions by assigning multiple old partitions to single new partitions. Tasks for the coalesced stage read from multiple input partitions locally—no network transfer.
+
+> **`coalesce` is like moving to a smaller office by having people share desks.** No one changes buildings—people just double up at the desks that remain. It's fast because nothing physically moves. The tradeoff: some desks end up more crowded than others.
 
 The tradeoff: because coalesce doesn't redistribute data, the new partitions may be uneven. If you coalesce 100 partitions down to 10, each new partition reads 10 old partitions, but those 10 old partitions might not be the same size. Coalesce is best used after a filter that has significantly reduced the data and you want to consolidate the remaining small partitions—for example, before writing to storage to avoid creating many tiny files. It is not appropriate when you need evenly-sized partitions or when you're increasing the partition count.
 
@@ -38,9 +44,11 @@ Coalesce cannot increase the partition count. Asking for more partitions than yo
 
 **`repartition(n)`** changes the partition count to exactly `n` by performing a **full shuffle**: all data is hashed (or round-robined) and redistributed across the network to `n` new partitions. The result is as even as the hash function can make it—each partition gets roughly `total_rows / n` rows.
 
+> **`repartition` is like a full office relocation.** Every employee packs up and moves to a new building that has exactly the right number of desks, evenly laid out. Everyone gets roughly the same amount of space. The cost is that literally everyone has to move—it's more disruptive than just doubling up desks, but the result is perfectly balanced.
+
 Repartition is the right tool when you need a specific, even distribution: before a join whose other side has a different partition count, before a sort that must produce a fixed number of output files, or when increasing the number of partitions to use more parallelism. It is also the only way to increase partition count (coalesce can't).
 
-The cost is a full shuffle: all your data crosses the network (or at least gets sorted and reassigned). This is equivalent to the cost of a `groupBy` or `join`—a stage boundary, disk and network I/O for all rows. Don't repartition unless you need to, and don't repartition more than once in a pipeline.
+The cost is a full shuffle: all your data crosses the network (or at least gets sorted and reassigned). Don't repartition unless you need to, and don't repartition more than once in a pipeline.
 
 ---
 
@@ -48,7 +56,7 @@ The cost is a full shuffle: all your data crosses the network (or at least gets 
 
 **`repartitionByRange(n, col)`** is a variant that shuffles data and assigns rows to partitions such that partition 0 has the smallest values of `col`, partition 1 has the next range, and so on. This produces **range-partitioned** data: the output partitions are ordered by key and contain contiguous ranges of values.
 
-Range-partitioned data is useful when writing a table that will be queried with range filters on the partition key—the data is physically sorted, so a query for `col BETWEEN 100 AND 200` only needs to scan the relevant partitions. It's also useful as input to a merge-sort: if you then sort within each partition, the whole dataset is globally sorted. The cost is the same as `repartition`: a full shuffle plus the overhead of sampling to determine range boundaries.
+Range-partitioned data is useful when writing a table that will be queried with range filters on the partition key—the data is physically sorted, so a query for `col BETWEEN 100 AND 200` only needs to scan the relevant partitions. It's also useful as input to a merge-sort: if you then sort within each partition, the whole dataset is globally sorted.
 
 ---
 
@@ -56,9 +64,7 @@ Range-partitioned data is useful when writing a table that will be queried with 
 
 When a shuffle happens (for `groupByKey`, `reduceByKey`, `join`, etc.), Spark uses a **partitioner** to decide which partition each record belongs to. The default is the **HashPartitioner**: it computes `hash(key) % numPartitions` to assign each record to a partition. This is fast and produces an even distribution for most keys, but it can produce severe skew if your key distribution is uneven—if 80% of your records share the same key, 80% of the data ends up in one partition.
 
-The **RangePartitioner** (used by `sortByKey` and `repartitionByRange`) samples the data to estimate the distribution of keys, then sets range boundaries so that roughly equal amounts of data go to each partition. It requires an initial sampling pass but produces much more even partitions for skewed key distributions.
-
-For DataFrames and SQL, the partitioner is managed automatically—you don't specify it directly. But you can influence it through `repartition(n, col)`, which partitions by the hash of `col`.
+The **RangePartitioner** samples the data to estimate the distribution of keys, then sets range boundaries so that roughly equal amounts of data go to each partition. It requires an initial sampling pass but produces much more even partitions for skewed key distributions.
 
 ---
 
@@ -66,11 +72,11 @@ For DataFrames and SQL, the partitioner is managed automatically—you don't spe
 
 Partition pruning is a different kind of partitioning story—not about task parallelism but about avoiding reading data that can't match a query's filters.
 
-When a table on disk is **physically partitioned** by a column (using Hive-style partitioning: `/orders/year=2024/month=01/...`), each directory is a partition containing only rows with that value of the partitioning column. Spark's file scan can read the directory metadata without opening any files. If your query has a filter `WHERE year = 2024 AND month = 01`, the file scan only opens the directories that match—it **prunes** all other partitions. No files are opened; no rows are read; the partitioned data simply doesn't exist from the query's perspective.
+When a table on disk is **physically partitioned** by a column (using Hive-style partitioning: `/orders/year=2024/month=01/...`), each directory is a partition containing only rows with that value of the partitioning column. If your query has a filter `WHERE year = 2024 AND month = 01`, the file scan only opens the directories that match—it **prunes** all other partitions. No files are opened; no rows are read; the partitioned data simply doesn't exist from the query's perspective.
 
-Partition pruning is one of the highest-leverage optimizations in data lake workloads. A table partitioned by `date` that receives a query for a single day's data reads only 1/365th of the files. For petabyte-scale tables, this is the difference between a query that finishes in seconds and one that runs for hours.
+> **Partition pruning is like an index at the back of a textbook.** You don't read every chapter to find a topic—you look it up in the index and go directly to the right pages. The chapters you don't need are never opened. For a petabyte-scale table partitioned by `date`, a query for a single day reads 1/365th of the files—the other 364 days never leave storage.
 
-Catalyst handles static partition pruning automatically: if the filter predicate involves only constants and partition columns, Spark evaluates it at plan time and passes the list of matching partitions to the file scan. **Dynamic partition pruning** (a Spark 3.x feature, covered in the AQE story) extends this to cases where the filter value is determined by the result of another query—for example, joining a large fact table with a small dimension table filtered by a condition; Spark can use the result of the dimension-table scan to prune partitions of the fact table at runtime.
+Catalyst handles static partition pruning automatically. **Dynamic partition pruning** (a Spark 3.x feature) extends this to cases where the filter value is determined by the result of another query—for example, joining a large fact table with a small dimension table filtered by a condition; Spark can use the result of the dimension-table scan to prune partitions of the fact table at runtime.
 
 ---
 
@@ -78,7 +84,7 @@ Catalyst handles static partition pruning automatically: if the filter predicate
 
 Even with a good partitioner, data skew can make partition counts meaningless. If one key appears 10 million times and all others appear a few hundred times, one partition will be 100x larger than average after a `groupBy`. The task for that partition takes 100x longer than all others; the stage is blocked waiting for it; the job is as slow as that one task.
 
-Spark 3's AQE can detect skewed partitions after a shuffle and automatically **split them** into multiple sub-tasks, each processing a fraction of the skewed partition. This requires no changes to your code. For pre-3.x Spark, the manual solution is to add a **salt**: append a random number (0–9, say) to the key before the first aggregation, aggregate on the salted key in parallel, then remove the salt and aggregate again to combine the partial results. Salting spreads one hot key across many partitions at the cost of a second aggregation step.
+Spark 3's AQE can detect skewed partitions after a shuffle and automatically **split them** into multiple sub-tasks, each processing a fraction of the skewed partition. For pre-3.x Spark, the manual solution is to add a **salt**: append a random number (0–9, say) to the key before the first aggregation, aggregate on the salted key in parallel, then remove the salt and aggregate again.
 
 ---
 
