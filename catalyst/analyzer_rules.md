@@ -30,7 +30,7 @@ df.queryExecution.analyzed   # the fully analyzed plan
 df.queryExecution.logical    # the unresolved parsed plan
 ```
 
-> **The Analyzer is like an editor fact-checking a manuscript before it goes to print.** The writer (parser) produces a draft with names and references everywhere. The editor checks every reference: "Does this table exist? Does this column belong to this table? Does this function take these argument types?" Any reference that can't be verified causes the manuscript to be rejected before it reaches readers (executors).
+> **The Analyzer is like an editor fact-checking a manuscript before it goes to print.** The writer (parser) produces a draft with names and references everywhere. The editor checks every reference: "Does this table exist? Does this column belong to this table? Does this function take these argument types?" Any reference that can't be verified causes the manuscript to be rejected before it reaches readers (optimizer).
 
 ---
 
@@ -222,9 +222,11 @@ If any check fails, `VerifyAnalysis` raises an `AnalysisException` with a specif
 spark.sql("SELECT customer_id FROM orders WHERE SUM(amount) > 100 GROUP BY customer_id")
 # AnalysisException: Filter 'sum(amount) > 100' contains aggregate function
 
-# Non-aggregate column in SELECT without GROUP BY
+# Non-aggregate column in SELECT that is not in GROUP BY
 spark.sql("SELECT customer_id, amount FROM orders GROUP BY customer_id")
-# AnalysisException: customer_id must appear in the GROUP BY clause or be used in an aggregate
+# AnalysisException: expression 'amount' is neither present in the group by,
+# nor is it an aggregate function. Add to group by or wrap in first() if you
+# don't care which value you get.
 ```
 
 ---
