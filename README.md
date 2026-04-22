@@ -4,7 +4,7 @@
 
 A growing collection of **story-style** explanations of Apache Spark internals. Each story focuses on one concept or subsystem and explains it as a narrative—what problem it solves, how it works, and how the pieces fit together. Every story includes **analogies and real-world examples** to make the ideas concrete and memorable, without diving into code.
 
-**50 stories published**
+**53 stories published**
 
 
 
@@ -22,7 +22,7 @@ Stories are grouped by **topic** (each has its own directory); related topics ar
 | Goal | Path |
 |------|------|
 | New to Spark internals | [Driver & Executors](execution/driver_executors_and_the_execution_model.md) → [Scheduler](scheduler/from_action_to_tasks.md) → [Shuffle](shuffle/journey_of_a_shuffle_record.md) → [Memory](memory/unified_memory_and_block_manager.md) → [Fault tolerance](fault-tolerance/lineage_and_fault_tolerance.md) |
-| Understanding SQL/DataFrame performance | [Catalyst](catalyst/from_sql_to_physical_plan.md) → [Statistics & CBO](catalyst/statistics_and_cbo.md) → [Joins](joins/how_spark_chooses_a_join.md) → [AQE](adaptive/aqe_rewriting_plans.md) → [EXPLAIN output](catalyst/explain_output.md) → [Parquet](data-sources/inside_a_parquet_file.md) → [Tungsten](tungsten/tungsten_and_binary_rows.md) |
+| Understanding SQL/DataFrame performance | [Catalyst](catalyst/from_sql_to_physical_plan.md) → [Analyzer rules](catalyst/analyzer_rules.md) → [Optimizer rules](catalyst/optimizer_rules.md) → [Physical planning rules](catalyst/physical_planning_rules.md) → [Statistics & CBO](catalyst/statistics_and_cbo.md) → [AQE](adaptive/aqe_rewriting_plans.md) → [EXPLAIN output](catalyst/explain_output.md) |
 | Debugging slow jobs | [Spark UI](ui-metrics/reading_the_spark_ui.md) → [EXPLAIN output](catalyst/explain_output.md) → [Partitions](partitioning/partitions_coalesce_repartition_pruning.md) → [Data skew](partitioning/data_skew_story.md) → [Shuffle tuning](shuffle/shuffle_tuning.md) → [OOM diagnosis](memory/oom_diagnosis.md) |
 | PySpark & UDF performance | [PySpark bridge](python/pyspark_bridge.md) → [UDF tax](udfs/udf_tax.md) → [Pandas UDFs](python/pandas_udfs.md) → [Arrow columnar](data-sources/arrow_columnar.md) → [Serialization](serialization/bytes_on_the_wire.md) |
 | Streaming systems | [Micro-batch engine](ss/micro_batch_engine.md) → [Watermarks](ss/watermarks_and_late_data.md) → [Stateful operations](ss/stateful_operations.md) → [Kafka source](ss/kafka_source.md) → [Trigger types](ss/trigger_types.md) → [Exactly-once](ss/exactly_once_delivery.md) → [RocksDB state store](ss/rocksdb_structured_streaming_story.md) |
@@ -63,6 +63,9 @@ How DataFrame/SQL becomes a plan, how it's optimized, and how joins and adaptive
 | Topic | Description | Stories |
 |-------|-------------|---------|
 | [Query planning (Catalyst)](catalyst/) | Logical plan, optimization rules, physical plan, codegen | [From SQL to a Running Plan: The Catalyst Story](catalyst/from_sql_to_physical_plan.md) |
+| [Analyzer rules](catalyst/) | How Spark resolves table names, column references, functions, and types | [Making Sense of Names: The Analyzer's Resolution Rules](catalyst/analyzer_rules.md) |
+| [Optimizer rules](catalyst/) | Predicate pushdown, column pruning, constant folding, join elimination; before/after plan diffs | [The Optimizer's Rulebook: How Catalyst Makes Plans Cheaper](catalyst/optimizer_rules.md) |
+| [Physical planning rules](catalyst/) | Strategy selection, EnsureRequirements, WholeStageCodegen grouping, AQE rules | [From Logic to Execution: How Spark Picks Physical Operators](catalyst/physical_planning_rules.md) |
 | [Statistics & CBO](catalyst/) | Table statistics, column histograms, cost-based optimizer decisions | [What Spark Knows About Your Data: Statistics and the Cost-Based Optimizer](catalyst/statistics_and_cbo.md) |
 | [Adaptive & runtime](adaptive/) | AQE: coalescing partitions, join conversion, skew handling, dynamic partition pruning | [AQE: How Spark Rewrites Plans After the Shuffle](adaptive/aqe_rewriting_plans.md) |
 | [Join strategies](joins/) | Sort-merge, broadcast, hash join; when each is chosen | [How Spark Chooses a Join](joins/how_spark_chooses_a_join.md) |
@@ -164,14 +167,14 @@ Practical stories about diagnosing and fixing common Spark performance problems.
 | Theme | Stories |
 |-------|---------|
 | Execution core | 11 |
-| Query & planning | 9 |
+| Query & planning | 12 |
 | Streaming | 7 |
 | Data & I/O | 5 |
 | Python & UDFs | 4 |
 | Cluster & observability | 6 |
 | Advanced / internals | 3 |
 | Performance & tuning | 6 |
-| **Unique total** | **50** |
+| **Unique total** | **53** |
 
 ---
 

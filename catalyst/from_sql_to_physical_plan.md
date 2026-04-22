@@ -24,6 +24,8 @@ If anything can't be resolved—an unknown column name, a type mismatch with no 
 
 > **It's like a sous-chef checking the recipe against actual ingredients.** "A pinch of saffron" becomes "2 grams of saffron from shelf B." "Bake for Y minutes" becomes a specific temperature and time. If an ingredient doesn't exist or a step is ambiguous, the sous-chef flags it before the cooking starts—not halfway through.
 
+**Go deeper**: [Making Sense of Names: The Analyzer's Resolution Rules](analyzer_rules.md) covers every major analyzer rule—`ResolveRelations`, `ResolveReferences`, `ResolveFunctions`, type coercion, `VerifyAnalysis`—with before/after plan diffs and the exact `AnalysisException` each rule can throw.
+
 ---
 
 ## Act 3: Optimization — making the plan cheaper
@@ -42,6 +44,8 @@ Some rules eliminate wasted work. **Predicate pushdown** moves filter conditions
 
 By the end of the optimization phase you have an **optimized logical plan**—still abstract (it says "join these two things" without saying *how*), but much leaner than what you started with.
 
+**Go deeper**: [The Optimizer's Rulebook: How Catalyst Makes Plans Cheaper](optimizer_rules.md) covers every major rule group with `explain("extended")` before/after diffs—predicate pushdown across joins, column pruning at scan level, constant folding, boolean simplification, null propagation, subquery decorrelation, and CBO join reordering.
+
 ---
 
 ## Act 4: Physical planning — choosing how to execute
@@ -53,6 +57,8 @@ The most visible choice is for **joins**: should this join be a broadcast hash j
 For aggregations, the planner chooses between hash-based aggregation (build a hash map of group keys → aggregated values) and sort-based aggregation. For data sources, it decides which scan strategy to use. For exchanges (shuffles), it inserts **Exchange** nodes.
 
 The planner may generate **multiple candidate physical plans** and score them, picking the cheapest. This is where cost-based optimization fully applies.
+
+**Go deeper**: [From Logic to Execution: How Spark Picks Physical Operators](physical_planning_rules.md) covers every planning strategy (`JoinSelection`, `Aggregation`, `FileSourceStrategy`), the preparation rules that insert `Exchange` and `Sort` nodes (`EnsureRequirements`), `CollapseCodegenStages` (the `*(N)` stage numbers in EXPLAIN), and AQE's post-shuffle re-planning rules.
 
 ---
 
@@ -71,6 +77,19 @@ Not every operator supports codegen—complex aggregations, sorts, and exchanges
 ## The EXPLAIN plan: reading the map
 
 You can see all of this at any time by calling `explain(extended=True)` on a DataFrame or running `EXPLAIN EXTENDED` in SQL. You get four sections: the parsed logical plan, the analyzed logical plan, the optimized logical plan, and the physical plan. Reading from bottom (closest to data) to top (the final output), you can see exactly what operators Spark will run, what filters were pushed down, what exchanges were inserted, and which join strategy was chosen.
+
+---
+
+## Dive deeper into each phase
+
+Each act in the Catalyst pipeline has its own dedicated story:
+
+| Phase | Deep-dive story |
+|-------|----------------|
+| Analysis (Act 2) | [Making Sense of Names: The Analyzer's Resolution Rules](analyzer_rules.md) |
+| Logical optimization (Act 3) | [The Optimizer's Rulebook: How Catalyst Makes Plans Cheaper](optimizer_rules.md) |
+| Physical planning (Act 4) | [From Logic to Execution: How Spark Picks Physical Operators](physical_planning_rules.md) |
+| Reading the output | [EXPLAIN Yourself: How to Read a Spark Physical Plan](explain_output.md) |
 
 ---
 
