@@ -1,0 +1,29 @@
+title: Spark Internals
+description: Story-style explanations of Apache Spark internals
+url: "https://vinodkc.github.io"
+baseurl: "/sparklearning"
+
+markdown: kramdown
+highlighter: rouge
+
+plugins:
+  - jekyll-relative-links
+  - jekyll-optional-front-matter
+  - jekyll-readme-index
+
+relative_links:
+  enabled: true
+  collections: true
+
+optional_front_matter:
+  remove_originals: false
+
+readme_index:
+  enabled: true
+  remove_originals: false
+
+defaults:
+  - scope:
+      path: ""
+    values:
+      layout: default
