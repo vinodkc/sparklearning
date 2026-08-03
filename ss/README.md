@@ -18,4 +18,5 @@ Stories about how Spark processes continuous data streams — micro-batches, sta
 - [The DataSource V2 API: How Spark Talks to Storage Systems](../data-sources/datasource_v2.md) — streaming sources implement the MicroBatchStream interface from DataSource V2
 - [The Two Lives of Spark's Memory](../memory/unified_memory_and_block_manager.md) — stateful streaming stores state in the BlockManager or RocksDB
 - [The Transaction Log: How Delta Lake Brings ACID to Object Storage](../data-sources/delta_lake_transaction_log.md) — Delta Lake is a common exactly-once sink for Structured Streaming pipelines
+- [Delta in Motion: Streaming Reads and Exactly-Once Sinks](../data-sources/delta_streaming.md) — Delta as a version-based streaming source and per-batch transactional sink
 - [Partitions: The Grain of Parallelism](../partitioning/partitions_coalesce_repartition_pruning.md) — the number of streaming shuffle partitions controls state store parallelism

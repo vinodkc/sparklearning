@@ -1,6 +1,6 @@
 # The Transaction Log: How Delta Lake Brings ACID to Object Storage
 
-This is the story of how Delta Lake turns a directory of Parquet files on cloud object storage into a transactional table. Object storage—S3, GCS, Azure Blob—was designed for scalable, durable file storage, not for the atomic multi-file updates that databases rely on. Delta Lake bridges this gap with a single elegant mechanism: the **transaction log**. Understanding the transaction log explains how concurrent writers don't corrupt each other's data, how you can query a table as it existed an hour ago, how failed writes leave no trace, and why Delta Lake can provide snapshot isolation on a system that doesn't natively support it.
+This is the story of how Delta Lake turns a directory of Parquet files on cloud object storage into a transactional table. Object storage—S3, GCS, Azure Blob—was designed for scalable, durable file storage, not for the atomic multi-file updates that databases rely on. Delta Lake bridges this gap with a single elegant mechanism: the **transaction log**. Understanding the transaction log explains how concurrent writers don't corrupt each other's data, how you can query a table as it existed an hour ago, how failed writes stay invisible to readers (even if orphan files briefly sit on storage), and why Delta Lake can provide snapshot isolation on a system that doesn't natively support it.
 
 ---
 
@@ -23,7 +23,9 @@ A transaction log entry is a list of **actions**. The most important actions are
 - **Add**: a new Parquet file has been added to the table. The entry records the file's path, size, partition values, and statistics.
 - **Remove**: a Parquet file has been logically deleted from the table. The file is not physically deleted immediately—it stays on disk for a configurable retention period—but it is no longer part of the table's current state.
 - **Metadata**: records the table's schema, partition columns, and table-level properties.
+- **Protocol**: records the minimum reader/writer protocol versions (and, in modern tables, which **table features** are required). Enabling deletion vectors or column mapping is ultimately a protocol/feature commitment every client must honor.
 - **CommitInfo**: a human-readable record of what operation was performed, who performed it, and when.
+- **SetTransaction** (optional): records that an application id completed a named version/batch—used by some streaming and exactly-once writers so a retried batch does not commit twice under the same app identity.
 
 To reconstruct the current state of the table, you replay the transaction log from the beginning: start with an empty set, process every Add and Remove action in order, and the result is the set of currently active Parquet files.
 
@@ -50,11 +52,21 @@ Delta Lake uses **optimistic concurrency control** (OCC) for concurrent writes. 
 Here is how a write works:
 
 1. **Read the current version**: the writer records the current log version (say, version 42).
-2. **Compute the write**: the writer runs its Spark job, producing new Parquet files. The files are written to the table directory immediately, but they are not yet referenced in any log entry—they are "staged."
-3. **Attempt to commit**: the writer tries to create log entry `000000000000000000043.json`. This is an atomic PUT operation—object storage guarantees that only one writer can successfully create a given file name. The log entry lists the staged files as Add actions.
-4. **Conflict check**: before the PUT, the Delta Lake client checks whether any transaction was committed between version 42 and 43. If another writer committed version 43 first, the current writer detects the conflict and may rebase and retry as version 44 (if the conflict is on different partitions) or fail (if it is a true conflict).
+2. **Compute the write**: the writer runs its Spark job, producing new Parquet files. The files are written to the table directory immediately, but they are not yet referenced in any log entry—they are "staged." Orphan staging files from crashed jobs can remain on storage; they are invisible to readers until (and unless) a commit names them, and cleanup/VACUUM eventually removes unreferenced objects.
+3. **Attempt to commit**: the writer tries to create the next log entry (`…043.json`) through Delta's **LogStore**—a thin layer that provides atomic, mutually exclusive commit creation on top of the underlying filesystem or object store (HDFS-style renames, conditional writes, or an external store such as DynamoDB on S3—not a guarantee of raw S3 PUT alone). Exactly one committer wins for that version name.
+4. **Conflict handling**: if creating version 43 fails because another writer already committed it, the loser reads the intervening commits, checks whether its own changes conflict under Delta's isolation rules, and either **rebases**—retries the commit at a higher version when the concurrent changes are compatible (for example, blind appends that do not rewrite the same files)—or fails when they are not (for example, two writers both trying to `Remove` the same data file).
 
-> **OCC is like two people trying to check out the last copy of a book from the library.** Both approach the counter thinking the book is available. One checks it out first (commits first, writes version 43). The second person arrives at the counter and finds the book gone—they have to either take a different book (rebase on a different partition) or leave empty-handed (fail with a conflict exception). Nobody locked the book on the shelf in advance; the conflict was resolved at the checkout moment.
+> **OCC is like two people trying to check out the last copy of a book from the library.** Both approach the counter thinking the book is available. One checks it out first (commits version 43). The second person finds that version taken: if they wanted a *different* book that is still available, they can complete a later checkout (rebase to version 44). If they both needed the *same* last copy, the second checkout fails. Nobody locked the shelf in advance; the conflict is resolved at the counter.
+
+### Isolation levels: what counts as a conflict
+
+"Compatible" is not vibes—it is defined by the table's **isolation level**.
+
+**WriteSerializable** (Delta's common default) allows concurrent transactions that commute in safe ways—most importantly, concurrent **blind appends** that only `Add` files typically succeed after rebase. Operations that read the table and then rewrite files (updates, deletes, merges, overwrite patterns) conflict when their read/write sets disagree with what landed in intervening commits.
+
+**Serializable** is stricter: more pairs of concurrent transactions are treated as conflicts, favoring a serial order of writes over throughput under contention.
+
+Readers still see **snapshot isolation** either way: they pick a version and ignore later commits. Isolation levels govern **which concurrent writers may both commit**, not whether a reader mid-scan suddenly sees new files.
 
 ---
 
@@ -70,7 +82,7 @@ You can query a specific version: `spark.read.format("delta").option("versionAsO
 
 ## Checkpoints: compacting the log for fast reads
 
-The transaction log grows with every committed transaction. Replaying a log with 100,000 entries would be slow. Delta Lake solves this with **checkpoints**: periodic compactions of the log into a Parquet file that represents the complete table state at a given version.
+The transaction log grows with every committed transaction. Replaying a log with 100,000 entries would be slow. Delta Lake solves this with **checkpoints**: periodic compaction of the log into a Parquet snapshot (sometimes accompanied by sidecar files in newer layouts) that represents the complete table state at a given version.
 
 A checkpoint at version 1000 contains the full list of all active files as of that version—every Add and Remove from versions 0 through 1000 has been resolved into a definitive file list. To reconstruct the current state after version 1000, you only need to read the checkpoint and then replay the small number of JSON log entries after version 1000. By default, Delta Lake creates a checkpoint every 10 transactions.
 
@@ -88,4 +100,6 @@ Every Delta table has a schema, recorded in the `Metadata` action in the log. Wh
 
 ## Bringing it together
 
-Delta Lake's transaction log is an append-only directory of JSON files in `_delta_log`, each representing one committed version of the table. Every write is a transaction that records which Parquet files were added and which were removed. **Snapshot isolation** is achieved because readers record a version at query start and ignore subsequent log entries. **Optimistic concurrency control** is achieved because committing a log entry is an atomic object-creation race—one writer wins, others detect the conflict and retry or fail. **Time travel** is possible because the log is never deleted within the retention window—any past version can be reconstructed by replaying the log up to that point. **Checkpoints** compact the log periodically so reading the current state doesn't require replaying thousands of entries. **Schema enforcement** prevents accidental incompatible writes, and **schema evolution** allows deliberate additions. Together, these mechanisms give Delta Lake the ACID properties of a database on infrastructure that supports only simple file writes.
+Delta Lake's transaction log is an append-only directory of JSON files in `_delta_log`, each representing one committed version of the table. Every write is a transaction that records which Parquet files were added and which were removed. **Snapshot isolation** is achieved because readers record a version at query start and ignore subsequent log entries. **Optimistic concurrency control** is achieved because committing the next log version is an atomic race through Delta's LogStore—one writer wins that version name; others detect the conflict and rebase or fail under **WriteSerializable** or stricter **Serializable** rules. **Protocol** actions record which table features readers must understand. **Time travel** is possible because the log is never deleted within the retention window—any past version can be reconstructed by replaying the log up to that point. **Checkpoints** compact the log periodically so reading the current state doesn't require replaying thousands of entries. **Schema enforcement** prevents accidental incompatible writes, and **schema evolution** allows deliberate additions. Together, these mechanisms give Delta Lake the ACID properties of a database on infrastructure that supports only simple file writes.
+
+How a reader turns a version into a Parquet file list—and how `UPDATE` / `DELETE` / `MERGE` rewrite that list—are the next stories: [Which Files Am I Reading? How Delta Resolves a Snapshot](delta_snapshot_read_path.md) and [Rewriting Reality: How UPDATE, DELETE, and MERGE Change a Delta Table](delta_dml_copy_on_write.md). Format features, housekeeping, and streaming continue in [Beyond Copy-on-Write](delta_format_features.md), [OPTIMIZE, Z-Order, and VACUUM](delta_optimize_and_vacuum.md), and [Delta in Motion](delta_streaming.md).

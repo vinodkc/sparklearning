@@ -12,7 +12,7 @@ The original DataSource API (now called V1) was designed for simple file-based s
 - **No streaming**: V1 was batch-only; streaming sources needed a completely separate API.
 - **No transactional writes**: V1 had no mechanism for atomic multi-partition writes or for aborting a write cleanly.
 - **Driver-centric partition planning**: the driver computed the full list of partitions upfront. For sources with many partitions or dynamic partition structures, this was a bottleneck.
-- **No columnar reads**: V1 returned rows; returning Arrow or columnar batches was not possible.
+- **No columnar reads**: V1 returned rows; returning columnar batches was not possible.
 
 DataSource V2 was designed to address all of these limitations with a clean, extensible interface.
 
@@ -32,7 +32,7 @@ DataSource V2 is organized as a set of **capability traits** that a connector im
 
 **`InputPartition`**: a serializable description of one slice of data to read. The driver creates `InputPartition` objects; executors deserialize them and use them to create `PartitionReader` instances that do the actual reading.
 
-**`PartitionReader`**: runs on the executor. It reads records from its assigned `InputPartition` and returns them one at a time (or as Arrow batches, for columnar connectors).
+**`PartitionReader`**: runs on the executor. It reads records from its assigned `InputPartition` and returns them one at a time (or as `ColumnarBatch` objects, for columnar connectors).
 
 > **The V2 API is like a staffing agency that brokers between a company (Spark) and contractors (connectors).** The company tells the agency what skills it needs (pushdowns, column pruning). The agency asks each contractor candidate (ScanBuilder) "can you do filtering yourself?" Some say yes; others say no and the company (Spark) does it for them. Once the contractor is hired (a Scan is built), they get their task assignments (InputPartitions) and start working independently (PartitionReaders on executors).
 
@@ -54,14 +54,14 @@ The result: only the data that matches the query's filters and projects is retur
 
 ---
 
-## Columnar reads: Arrow integration
+## Columnar reads: batches instead of rows
 
-A significant V2 feature is support for **columnar reads**. A connector can implement `SupportsScanColumnarBatch`, indicating that it returns data as `ColumnarBatch` (Apache Arrow format) rather than row-by-row. This enables:
-- Zero-copy reads from Arrow-native formats (e.g., Arrow IPC files)
-- Parquet's vectorized reader, which returns Arrow batches
-- Efficient interop with PySpark's `toPandas()` via the Arrow pathway
+A significant V2 feature is support for **columnar reads**. A connector's `PartitionReaderFactory` can declare that a partition supports columnar reads and hand back a reader that produces **`ColumnarBatch`** objects rather than one row at a time. `ColumnarBatch` is Spark's own in-memory columnar representation—a set of `ColumnVector` arrays—not the Arrow format itself. This enables:
+- Parquet's and ORC's vectorized readers, which fill Spark column vectors directly
+- Arrow-native connectors, which can expose Arrow buffers to Spark through `ArrowColumnVector` so no conversion copy is needed
+- Efficient interop with PySpark's `toPandas()`, where Spark converts columnar data into Arrow batches for the trip to Python
 
-Connectors that return `ColumnarBatch` bypass the row-by-row deserialization path entirely—the Arrow buffer is used directly by Spark's columnar operators, which are codegen'd to process arrays rather than individual rows.
+Connectors that return `ColumnarBatch` bypass the row-by-row deserialization path entirely—the column vectors are consumed directly by Spark's columnar operators, which are codegen'd to process arrays rather than individual rows. Arrow is the interchange format on the Python boundary; `ColumnarBatch` is the contract inside the JVM. The distinction matters when you profile a scan: a "columnar" Parquet read is not paying any Arrow cost until data actually crosses into a Python worker. See [The Columnar Fast Lane: How Apache Arrow Speeds Up PySpark](arrow_columnar.md) for that side of the story.
 
 ---
 
@@ -73,7 +73,7 @@ V2 adds structured write support via `WriteBuilder`, `Write`, and `DataWriter`:
 
 **`Write`**: describes the planned write. It returns `WriterFactory` objects.
 
-**`DataWriter[T]`**: runs on the executor for each output partition. It receives rows (or Arrow batches for columnar writes), writes them to the target storage, and produces a `WriterCommitMessage` when done.
+**`DataWriter[T]`**: runs on the executor for each output partition. It receives rows (or columnar batches for columnar writes), writes them to the target storage, and produces a `WriterCommitMessage` when done.
 
 **`BatchWrite` and `StreamingWrite`**: at commit time, the driver calls the `Table`'s `commit(messages)` method with all partition commit messages. This is the point where the connector can implement **atomic, transactional commits**: only if all partitions succeed does the driver call `commit`; if any fail, it calls `abort`. Delta Lake implements exactly this—all written Parquet files are staged, and only the transaction log entry is written in `commit()`, making the entire write atomic.
 
@@ -123,4 +123,4 @@ Register the connector in `META-INF/services/org.apache.spark.sql.sources.DataSo
 
 ## Bringing it together
 
-DataSource V2 is Spark's pluggable storage API, designed to replace V1's limitations with a principled, capability-based contract. A connector exposes a `TableProvider` → `Table` → `ScanBuilder` hierarchy that enables **filter pushdown** (accepted filters are applied by the connector, not Spark), **column pruning** (only requested columns are read), and **columnar reads** (Arrow batches instead of rows). Writes use a two-phase commit pattern (`DataWriter` on executors + atomic `commit` on the driver) that enables transactional, all-or-nothing writes. Streaming is unified through `MicroBatchStream`, eliminating the separate streaming source API of V1. Custom connectors implement only the capabilities they support; Spark handles the rest. So the story of DataSource V2 is: **negotiate capabilities at plan time → distribute partition assignments → execute in parallel on executors → commit atomically**, giving every storage system the ability to participate in Spark's query optimization and execution as a fully first-class data source.
+DataSource V2 is Spark's pluggable storage API, designed to replace V1's limitations with a principled, capability-based contract. A connector exposes a `TableProvider` → `Table` → `ScanBuilder` hierarchy that enables **filter pushdown** (accepted filters are applied by the connector, not Spark), **column pruning** (only requested columns are read), and **columnar reads** (`ColumnarBatch` column vectors instead of rows). Writes use a two-phase commit pattern (`DataWriter` on executors + atomic `commit` on the driver) that enables transactional, all-or-nothing writes. Streaming is unified through `MicroBatchStream`, eliminating the separate streaming source API of V1. Custom connectors implement only the capabilities they support; Spark handles the rest. So the story of DataSource V2 is: **negotiate capabilities at plan time → distribute partition assignments → execute in parallel on executors → commit atomically**, giving every storage system the ability to participate in Spark's query optimization and execution as a fully first-class data source.

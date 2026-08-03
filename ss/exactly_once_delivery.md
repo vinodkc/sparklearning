@@ -52,6 +52,8 @@ Structured Streaming formalizes the transactional sink pattern through the `Stre
 
 The `epochId` (or batch ID) is deterministic and stable: if a batch is re-run after a failure, it has the same epoch ID. A sink that has already committed a given epoch ID can simply no-op when `commit(epochId)` is called again. This makes the protocol idempotent at the epoch level: committing the same epoch twice is safe.
 
+Delta Lake is the most common concrete instance of this pattern: staged Parquet files plus one atomic log commit per batch, with a `SetTransaction` action recording the app id and batch number so a replayed batch is not applied twice. [Delta in Motion: Streaming Reads and Exactly-Once Sinks](../data-sources/delta_streaming.md) follows both the source and sink sides of that story.
+
 ---
 
 ## End-to-end exactly-once: the full picture

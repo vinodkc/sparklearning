@@ -4,7 +4,7 @@
 
 A growing collection of **story-style** explanations of Apache Spark internals. Each story focuses on one concept or subsystem and explains it as a narrative—what problem it solves, how it works, and how the pieces fit together. Every story includes **analogies and real-world examples** to make the ideas concrete and memorable, without diving into code.
 
-**53 stories published**
+**62 stories published**
 
 
 
@@ -16,6 +16,7 @@ Stories are grouped by **topic** (each has its own directory); related topics ar
 
 - **Browse by theme** — Execution core, Query & planning, Streaming, Data & I/O, and more.
 - **Read in any order** — Stories are self-contained; follow your curiosity.
+- **Share feedback** — [Suggest a topic, report errata, or leave a comment](https://forms.gle/XdwzW8BENykAv3aE7).
 
 ### Suggested reading paths
 
@@ -25,9 +26,9 @@ Stories are grouped by **topic** (each has its own directory); related topics ar
 | Understanding SQL/DataFrame performance | [Catalyst](catalyst/from_sql_to_physical_plan.md) → [Analyzer rules](catalyst/analyzer_rules.md) → [Optimizer rules](catalyst/optimizer_rules.md) → [Physical planning rules](catalyst/physical_planning_rules.md) → [Statistics & CBO](catalyst/statistics_and_cbo.md) → [AQE](adaptive/aqe_rewriting_plans.md) → [EXPLAIN output](catalyst/explain_output.md) |
 | Debugging slow jobs | [Spark UI](ui-metrics/reading_the_spark_ui.md) → [EXPLAIN output](catalyst/explain_output.md) → [Partitions](partitioning/partitions_coalesce_repartition_pruning.md) → [Data skew](partitioning/data_skew_story.md) → [Shuffle tuning](shuffle/shuffle_tuning.md) → [OOM diagnosis](memory/oom_diagnosis.md) |
 | PySpark & UDF performance | [PySpark bridge](python/pyspark_bridge.md) → [UDF tax](udfs/udf_tax.md) → [Pandas UDFs](python/pandas_udfs.md) → [Arrow columnar](data-sources/arrow_columnar.md) → [Serialization](serialization/bytes_on_the_wire.md) |
-| Streaming systems | [Micro-batch engine](ss/micro_batch_engine.md) → [Watermarks](ss/watermarks_and_late_data.md) → [Stateful operations](ss/stateful_operations.md) → [Kafka source](ss/kafka_source.md) → [Trigger types](ss/trigger_types.md) → [Exactly-once](ss/exactly_once_delivery.md) → [RocksDB state store](ss/rocksdb_structured_streaming_story.md) |
+| Streaming systems | [Micro-batch engine](ss/micro_batch_engine.md) → [Watermarks](ss/watermarks_and_late_data.md) → [Stateful operations](ss/stateful_operations.md) → [Kafka source](ss/kafka_source.md) → [Trigger types](ss/trigger_types.md) → [Exactly-once](ss/exactly_once_delivery.md) → [Delta streaming](data-sources/delta_streaming.md) → [RocksDB state store](ss/rocksdb_structured_streaming_story.md) |
 | Scheduling & fairness | [Scheduler](scheduler/from_action_to_tasks.md) → [Locality](scheduler/locality_and_delay_scheduling.md) → [Fair sharing](scheduler/scheduling_pools_and_fair_sharing.md) → [Dynamic allocation](execution/dynamic_allocation.md) |
-| Data lake & storage | [Parquet internals](data-sources/inside_a_parquet_file.md) → [DataSource V2](data-sources/datasource_v2.md) → [Delta Lake](data-sources/delta_lake_transaction_log.md) → [Catalog & tables](catalog/what_is_a_table_to_spark.md) → [Unity Catalog](catalog/unity_catalog.md) |
+| Data lake & storage | [Parquet internals](data-sources/inside_a_parquet_file.md) → [Writing Parquet](data-sources/writing_parquet_with_spark.md) → [Parquet layout & pruning](data-sources/parquet_layout_and_pruning.md) → [Parquet schema & evolution](data-sources/parquet_schema_and_evolution.md) → [Spark Parquet read path](data-sources/spark_parquet_read_path.md) → [DataSource V2](data-sources/datasource_v2.md) → [Delta transaction log](data-sources/delta_lake_transaction_log.md) → [Delta snapshot read](data-sources/delta_snapshot_read_path.md) → [Delta DML / CoW](data-sources/delta_dml_copy_on_write.md) → [Delta format features](data-sources/delta_format_features.md) → [OPTIMIZE & VACUUM](data-sources/delta_optimize_and_vacuum.md) → [Delta streaming](data-sources/delta_streaming.md) → [Catalog & tables](catalog/what_is_a_table_to_spark.md) → [Unity Catalog](catalog/unity_catalog.md) |
 | Cluster & deploy | [spark-submit](cluster/spark_submit.md) → [YARN mode](cluster/spark_on_yarn.md) → [Kubernetes mode](cluster/spark_on_kubernetes.md) → [SparkConf](config/sparkconf_configuration.md) → [Event log](ui-metrics/event_log_and_history_server.md) |
 | Join & shuffle optimization | [Join strategies](joins/how_spark_chooses_a_join.md) → [Join patterns](joins/join_optimization_patterns.md) → [Shuffle tuning](shuffle/shuffle_tuning.md) → [Caching strategy](memory/caching_strategy.md) → [GC tuning](tungsten/gc_tuning.md) |
 | Advanced internals | [Tungsten](tungsten/tungsten_and_binary_rows.md) → [Expression tree](catalyst/expression_tree.md) → [Encoders & Datasets](catalyst/encoders_and_datasets.md) → [Subqueries](catalyst/subqueries_untangled.md) → [Window functions](catalyst/window_functions.md) |
@@ -99,8 +100,17 @@ Reading and writing data, formats, and data source APIs.
 
 | Topic | Description | Stories |
 |-------|-------------|---------|
-| [Parquet internals](data-sources/) | Row groups, column chunks, page encoding, predicate and projection pushdown | [Inside a Parquet File: Row Groups, Column Chunks, and Why Spark Loves It](data-sources/inside_a_parquet_file.md) |
-| [Delta Lake basics](data-sources/) | Transaction log, snapshot isolation, schema enforcement, time travel | [The Transaction Log: How Delta Lake Brings ACID to Object Storage](data-sources/delta_lake_transaction_log.md) |
+| [Parquet internals](data-sources/) | Row groups, column chunks, page encoding, pushdown, page indexes, bloom filters, vectorized fallbacks | [Inside a Parquet File: Row Groups, Column Chunks, and Why Spark Loves It](data-sources/inside_a_parquet_file.md) |
+| [Writing Parquet](data-sources/) | Output files from tasks, compression, dictionaries, small files, coalesce/repartition before write | [From DataFrame to Disk: How Spark Writes a Parquet File](data-sources/writing_parquet_with_spark.md) |
+| [Parquet layout & pruning](data-sources/) | Hive-style directories, partition pruning vs row-group skipping, clustering and over-partitioning | [Folders, Filters, and Skipping: How Layout Makes or Breaks Parquet Scans](data-sources/parquet_layout_and_pruning.md) |
+| [Parquet schema & evolution](data-sources/) | Footer schemas, nested types, additive evolution vs renames, mergeSchema cost | [Columns That Change: Schema, Nested Types, and Evolution in Parquet](data-sources/parquet_schema_and_evolution.md) |
+| [Spark Parquet read path](data-sources/) | Planning, partition pruning, footers, vectorized batches and fallbacks, UI scan metrics | [From Footer to Batches: How Spark Reads Parquet](data-sources/spark_parquet_read_path.md) |
+| [Delta Lake basics](data-sources/) | Transaction log, protocol/features, snapshot isolation, OCC and isolation levels, time travel | [The Transaction Log: How Delta Lake Brings ACID to Object Storage](data-sources/delta_lake_transaction_log.md) |
+| [Delta snapshot reads](data-sources/) | Version → checkpoint + JSON replay → active files, data skipping, hand-off to Parquet | [Which Files Am I Reading? How Delta Resolves a Snapshot](data-sources/delta_snapshot_read_path.md) |
+| [Delta DML / copy-on-write](data-sources/) | UPDATE, DELETE, MERGE as file rewrites; write amplification; OCC conflicts | [Rewriting Reality: How UPDATE, DELETE, and MERGE Change a Delta Table](data-sources/delta_dml_copy_on_write.md) |
+| [Delta format features](data-sources/) | Deletion vectors, column mapping, liquid clustering, protocol features | [Beyond Copy-on-Write: Deletion Vectors, Column Mapping, and Liquid Clustering](data-sources/delta_format_features.md) |
+| [Delta OPTIMIZE & VACUUM](data-sources/) | Compaction, Z-Order/clustering rewrites, data vs log retention | [Housekeeping the Lake: OPTIMIZE, Z-Order, and VACUUM](data-sources/delta_optimize_and_vacuum.md) |
+| [Delta streaming](data-sources/) | Version-based source, CDF, per-batch commits, SetTransaction, small-file loop | [Delta in Motion: Streaming Reads and Exactly-Once Sinks](data-sources/delta_streaming.md) |
 | [Serialization](serialization/) | Tungsten binary format, Kryo, Java serialization; when each is used | [Bytes on the Wire: How Spark Serializes Data for Tasks and Shuffles](serialization/bytes_on_the_wire.md) |
 | [DataSource V2 API](data-sources/) | Pluggable connector API; pushdown negotiation, transactional writes, streaming sources | [The DataSource V2 API: How Spark Talks to Storage Systems](data-sources/datasource_v2.md) |
 | [Arrow & columnar transfer](data-sources/) | Apache Arrow format, columnar batches, zero-copy transfer in PySpark | [The Columnar Fast Lane: How Apache Arrow Speeds Up PySpark](data-sources/arrow_columnar.md) |
@@ -169,12 +179,19 @@ Practical stories about diagnosing and fixing common Spark performance problems.
 | Execution core | 11 |
 | Query & planning | 12 |
 | Streaming | 7 |
-| Data & I/O | 5 |
+| Data & I/O | 14 |
 | Python & UDFs | 4 |
 | Cluster & observability | 6 |
 | Advanced / internals | 3 |
 | Performance & tuning | 6 |
-| **Unique total** | **53** |
+| **Unique total** | **62** |
+
+---
+
+## Feedback
+
+Found a typo, unclear explanation, or have a topic idea?  
+**[Send feedback via this form](https://forms.gle/XdwzW8BENykAv3aE7)** — comments, suggestions, errata, and new topic requests are welcome.
 
 ---
 
