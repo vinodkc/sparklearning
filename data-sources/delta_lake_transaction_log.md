@@ -52,17 +52,41 @@ Delta Lake uses **optimistic concurrency control** (OCC) for concurrent writes. 
 Here is how a write works:
 
 1. **Read the current version**: the writer records the current log version (say, version 42).
-2. **Compute the write**: the writer runs its Spark job, producing new Parquet files. The files are written to the table directory immediately, but they are not yet referenced in any log entry—they are "staged." Orphan staging files from crashed jobs can remain on storage; they are invisible to readers until (and unless) a commit names them, and cleanup/VACUUM eventually removes unreferenced objects.
-3. **Attempt to commit**: the writer tries to create the next log entry (`…043.json`) through Delta's **LogStore**—a thin layer that provides atomic, mutually exclusive commit creation on top of the underlying filesystem or object store (HDFS-style renames, conditional writes, or an external store such as DynamoDB on S3—not a guarantee of raw S3 PUT alone). Exactly one committer wins for that version name.
-4. **Conflict handling**: if creating version 43 fails because another writer already committed it, the loser reads the intervening commits, checks whether its own changes conflict under Delta's isolation rules, and either **rebases**—retries the commit at a higher version when the concurrent changes are compatible (for example, blind appends that do not rewrite the same files)—or fails when they are not (for example, two writers both trying to `Remove` the same data file).
+2. **Compute the write**: the writer runs its Spark job, producing new Parquet files. The files are written to the table directory immediately, but they are not yet referenced in any log entry; they are "staged." Orphan staging files from crashed jobs can remain on storage; they are invisible to readers until (and unless) a commit names them, and cleanup/VACUUM eventually removes unreferenced objects.
+3. **Attempt to commit**: the writer tries to create the next log entry (`…043.json`) through Delta's **LogStore**, a thin layer that provides atomic, mutually exclusive commit creation on top of the underlying filesystem or object store (HDFS-style renames, conditional writes, or an external store such as DynamoDB on S3; not a guarantee of raw S3 PUT alone). Exactly one committer wins for that version name.
+4. **Conflict handling**: if creating version 43 fails because another writer already committed it, the loser reads the intervening commits and checks whether its own changes conflict under Delta's isolation rules. Two outcomes matter, and they treat the already-written Parquet files differently:
+   - **Compatible race (rebase)**: the concurrent commits do not logically invalidate this writer's staged work (classic case: two blind appends). Delta **retries only the commit** at a higher version (44, then 45, …) and **reuses the same staged Parquet files**. It does not throw those files away or rewrite their bytes. The expensive Spark write already finished; only the log-entry race is retried.
+   - **Logical conflict (fail)**: the intervening commits *do* invalidate the work (classic case: two writers both try to `Remove` the same data file). Delta raises a concurrent-modification exception. The staged Parquet files are **not** committed. They stay on storage as invisible orphans until VACUUM. Delta does **not** automatically rewrite them. If your job or pipeline retries, that retry is a **new transaction**: read a fresh snapshot, write **new** Parquet files, and attempt a new commit. The previous attempt's files are abandoned, not reused.
 
 > **OCC is like two people trying to check out the last copy of a book from the library.** Both approach the counter thinking the book is available. One checks it out first (commits version 43). The second person finds that version taken: if they wanted a *different* book that is still available, they can complete a later checkout (rebase to version 44). If they both needed the *same* last copy, the second checkout fails. Nobody locked the shelf in advance; the conflict is resolved at the counter.
 
+### What happens to the files that were already written?
+
+The key mental model: **data files are cheap to leave lying around; the commit is the moment of truth.** Staging happens before the race. Winning or losing the race decides whether those staged paths become part of the table.
+
+**Real-life example 1: two ingest jobs appending events (reuse).**
+
+Two pipelines append clickstream events into the same Delta table. Job A and Job B both read version 100, then each write a handful of Parquet files under the table path. Job A wins `…101.json` and publishes its `Add` actions. Job B's attempt at version 101 fails on the LogStore race. Delta checks: Job B only adds files; Job A's commit only added different files; under WriteSerializable this is compatible. Job B **keeps** the Parquet files it already wrote and commits them as version 102. Readers never saw a partial append; Job B did not re-run its Spark write just because the version number was taken.
+
+Think of two delivery trucks that both loaded boxes overnight and both drive to the warehouse dock. The dock clerk can stamp only one receipt at a time. Truck A gets receipt #101. Truck B's boxes are already on the dock; the clerk does not make Truck B drive back to the factory and reload. The clerk stamps receipt #102 for the same boxes.
+
+**Real-life example 2: two UPDATEs touching the same file (throw away and rewrite on retry).**
+
+Two jobs each try to correct different rows that happen to live in the same Parquet file `part-0007.parquet`. Both read version 50, both rewrite that file into a new staged file (`part-A-new.parquet` and `part-B-new.parquet`), and both plan to `Remove` `part-0007.parquet`. Job A commits first as version 51. Job B's commit attempt sees that the file it read was removed by a concurrent writer: a logical conflict. Job B fails with a concurrent-modification exception. `part-B-new.parquet` is never added to the log. It is an orphan. If an orchestrator retries Job B, the retry must read the **new** snapshot (which already includes Job A's rewrite), compute a fresh rewrite against whatever file is active now, write **new** staged bytes, and commit again. Reusing `part-B-new.parquet` would be wrong: it was computed against an outdated base file.
+
+Think of two editors who each photocopied the same chapter, marked up their own copy, and raced to file the replacement with the records office. Editor A's replacement is accepted. Editor B's marked-up photocopy is based on the old chapter and cannot be filed as-is. The office rejects it. If Editor B tries again, they must photocopy the **current** chapter (A's version), mark it up again, and submit a new replacement. Yesterday's rejected photocopy stays in the recycling bin until cleanup day (VACUUM).
+
+**Real-life example 3: crash after staging, before commit (orphans, invisible).**
+
+A job writes 40 Parquet files, then the cluster dies before creating the next `_delta_log` JSON file. Those 40 files sit on object storage but no log entry names them, so every reader ignores them. A later successful write (or a retry of the same job) writes its own files and commits normally. VACUUM eventually deletes the unreferenced crash leftovers after the retention window.
+
+So: **compatible commit races reuse staged files; logical conflicts abandon them; application retries rewrite.** The transaction log is what makes "already written" safe either way, because readers only trust files named by a committed version.
+
 ### Isolation levels: what counts as a conflict
 
-"Compatible" is not vibes—it is defined by the table's **isolation level**.
+"Compatible" is not vibes; it is defined by the table's **isolation level**.
 
-**WriteSerializable** (Delta's common default) allows concurrent transactions that commute in safe ways—most importantly, concurrent **blind appends** that only `Add` files typically succeed after rebase. Operations that read the table and then rewrite files (updates, deletes, merges, overwrite patterns) conflict when their read/write sets disagree with what landed in intervening commits.
+**WriteSerializable** (Delta's common default) allows concurrent transactions that commute in safe ways. Most importantly, concurrent **blind appends** that only `Add` files typically succeed after rebase, reusing their staged files as above. Operations that read the table and then rewrite files (updates, deletes, merges, overwrite patterns) conflict when their read/write sets disagree with what landed in intervening commits.
 
 **Serializable** is stricter: more pairs of concurrent transactions are treated as conflicts, favoring a serial order of writes over throughput under contention.
 
