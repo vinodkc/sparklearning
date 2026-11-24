@@ -172,6 +172,16 @@ Practical stories about diagnosing and fixing common Spark performance problems.
 
 ---
 
+### Databricks resources
+
+Beyond the stories: external references for industry architectures and staying current on the platform.
+
+| Page | Description |
+|------|-------------|
+| [Databricks resources](resources/) | Reference Architecture 2.0 blog, the interactive Reference Architecture app, and the brickster.ai Databricks Radar |
+
+---
+
 ## Story map at a glance
 
 | Theme | Stories |
@@ -195,8 +205,10 @@ Found a typo, unclear explanation, or have a topic idea?
 
 ---
 
+<!--
 ## Adding new stories
 
 - Put each new story in the **directory for its topic** (create the directory if it's the first story in that group).
 - Use a **descriptive filename** (e.g. `rocksdb_structured_streaming_story.md`).
 - **Update this README** — add the story link in the table and update the Story map counts.
+-->
