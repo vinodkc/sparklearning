@@ -6,16 +6,158 @@
   <title>{% if page.title %}{{ page.title }} | {% endif %}{{ site.title }}</title>
   <meta name="description" content="{{ page.description | default: site.description }}">
   <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/github-markdown-css/5.8.1/github-markdown-light.min.css">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=DM+Mono:wght@400;500&family=DM+Sans:wght@400;500;700&display=swap">
   <style>
+    :root {
+      /* Databricks brand palette */
+      --db-navy-900: #0b2026;
+      --db-navy-800: #1b3139;
+      --db-navy-600: #5a6f77;
+      --db-lava-600: #ff3621;
+      --db-lava-700: #bd2b26;
+      --db-lava-100: #ffe9e6;
+      --db-oat-light: #f9f7f4;
+      --db-oat-medium: #eeede9;
+      --db-gray-border: #dce0e2;
+      --db-blue-600: #2272b4;
+    }
     body {
       margin: 0;
-      background: #ffffff;
+      background: var(--db-oat-light);
+      color: var(--db-navy-900);
+      font-family: "DM Sans", -apple-system, BlinkMacSystemFont, "Segoe UI", Helvetica, Arial, sans-serif;
+    }
+    .site-header {
+      background: var(--db-navy-800);
+      border-bottom: 4px solid var(--db-lava-600);
+    }
+    .site-header-inner {
+      box-sizing: border-box;
+      max-width: 980px;
+      margin: 0 auto;
+      padding: 16px;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 16px;
+    }
+    .site-title {
+      color: #ffffff;
+      font-size: 20px;
+      font-weight: 700;
+      text-decoration: none;
+      letter-spacing: 0.2px;
+    }
+    .site-title span {
+      color: var(--db-lava-600);
+    }
+    .site-nav a {
+      color: var(--db-oat-medium);
+      font-size: 14px;
+      text-decoration: none;
+      margin-left: 16px;
+    }
+    .site-nav a:hover {
+      color: var(--db-lava-600);
     }
     .page {
       box-sizing: border-box;
       max-width: 980px;
-      margin: 0 auto;
-      padding: 32px 16px 64px;
+      margin: 32px auto 64px;
+      padding: 32px 40px 48px;
+      background: #ffffff;
+      border: 1px solid var(--db-gray-border);
+      border-radius: 8px;
+    }
+    @media (max-width: 767px) {
+      .page {
+        margin: 0;
+        padding: 24px 16px 48px;
+        border-radius: 0;
+        border-left: 0;
+        border-right: 0;
+      }
+    }
+
+    /* Override github-markdown-css theme variables */
+    .markdown-body {
+      --fgColor-default: var(--db-navy-900);
+      --fgColor-muted: var(--db-navy-600);
+      --fgColor-accent: var(--db-blue-600);
+      --bgColor-default: #ffffff;
+      --bgColor-muted: var(--db-oat-light);
+      --bgColor-neutral-muted: var(--db-oat-medium);
+      --borderColor-default: var(--db-gray-border);
+      --borderColor-muted: var(--db-oat-medium);
+      --borderColor-accent-emphasis: var(--db-lava-600);
+      font-family: "DM Sans", -apple-system, BlinkMacSystemFont, "Segoe UI", Helvetica, Arial, sans-serif;
+      color: var(--db-navy-900);
+    }
+    .markdown-body h1,
+    .markdown-body h2,
+    .markdown-body h3,
+    .markdown-body h4 {
+      color: var(--db-navy-800);
+      font-weight: 700;
+    }
+    .markdown-body h1 {
+      border-bottom: 3px solid var(--db-lava-600);
+    }
+    .markdown-body h2 {
+      border-bottom: 1px solid var(--db-gray-border);
+    }
+    .markdown-body a {
+      color: var(--db-lava-600);
+      text-decoration: none;
+    }
+    .markdown-body a:hover {
+      color: var(--db-lava-700);
+      text-decoration: underline;
+    }
+    .markdown-body code,
+    .markdown-body tt,
+    .markdown-body pre,
+    .markdown-body pre code {
+      font-family: "DM Mono", ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+    }
+    .markdown-body code,
+    .markdown-body tt {
+      background: var(--db-oat-medium);
+      color: var(--db-navy-800);
+    }
+    .markdown-body pre {
+      background: var(--db-navy-800);
+      color: var(--db-oat-medium);
+    }
+    .markdown-body pre code {
+      background: transparent;
+      color: inherit;
+    }
+    .markdown-body blockquote {
+      color: var(--db-navy-600);
+      border-left: 4px solid var(--db-lava-600);
+      background: var(--db-oat-light);
+      padding: 8px 16px;
+    }
+    .markdown-body hr {
+      background: var(--db-gray-border);
+      height: 2px;
+    }
+    .markdown-body table th {
+      background: var(--db-navy-800);
+      color: #ffffff;
+      border-color: var(--db-navy-800);
+    }
+    .markdown-body table td {
+      border-color: var(--db-gray-border);
+    }
+    .markdown-body table tr:nth-child(2n) {
+      background: var(--db-oat-light);
+    }
+    .markdown-body ::selection {
+      background: var(--db-lava-100);
     }
   </style>
   <!-- Google tag (gtag.js) -->
@@ -28,6 +170,15 @@
   </script>
 </head>
 <body>
+  <header class="site-header">
+    <div class="site-header-inner">
+      <a class="site-title" href="{{ '/' | relative_url }}">Spark Internals<span>.</span> Learning Through Stories</a>
+      <nav class="site-nav">
+        <a href="https://forms.gle/XdwzW8BENykAv3aE7">Feedback</a>
+        <a href="https://github.com/vinodkc/sparklearning">GitHub</a>
+      </nav>
+    </div>
+  </header>
   <main class="page markdown-body">
     {{ content }}
   </main>
